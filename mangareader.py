@@ -2,7 +2,24 @@
 # mapIt.py - Launches a map in the browser using an address from the
 # command line or clipboard.
 
-import webbrowser, sys, pyperclip, requests, bs4
+import webbrowser, sys, pyperclip, requests, bs4, os, threading
+
+maxthreads = 5
+sema = threading.Semaphore(value=maxthreads)
+
+def download(link, filelocation):
+	sema.acquire()
+	res = requests.get(link)
+	res.raise_for_status()
+	imageFile = open(os.path.join(filelocation, os.path.basename(link)), 'wb')
+	for chunk in res.iter_content(100000):
+		imageFile.write(chunk)
+	sema.release()
+	imageFile.close()
+def downloadThread(link, filelocation):
+	download_thread = threading.Thread(target=download, args = (link, filelocation))
+	download_thread.start()
+
 if len(sys.argv) > 1:
     # Get address from command line.
     address = ' '.join(sys.argv[1:])
@@ -53,7 +70,7 @@ for i in range(int(chapter_Begin) - 1, int(chapter_End)):
 	chapters.append('https://mangapark.me' + list_Chapters[i]['href'][:-2])
 	print(str(i+1) + '. ' + list_Chapters[i].text)
 print(chapters)
-chapter_Title = input('Please input directory name')
+chapter_Title = input('Please input directory name ')
 os.makedirs(chapter_Title, exist_ok=True)
 chapter_Images = list()
 for i in range(len(chapters)):
@@ -63,3 +80,17 @@ for i in range(len(chapters)):
 	except Exception as exc:
 	    print('There was a problem: %s' % (exc))
 	search_Page = bs4.BeautifulSoup(res.text, features="html.parser")
+	for j in range(len(search_Page.select('.img-num'))):
+		print(search_Page.select('#canvas-' + str(j+1) + ' .img-num')[0]['href'])
+		temp = search_Page.select('#canvas-' + str(j+1) + ' .img-num')[0]['href']
+		if 'https:' in temp:
+			chapter_Images.append(search_Page.select('#canvas-' + str(j+1) + ' .img-num')[0]['href'])
+		else:
+			chapter_Images.append('https:' + search_Page.select('#canvas-' + str(j+1) + ' .img-num')[0]['href'])
+print(chapter_Images)
+
+for i in range(len(chapter_Images)):
+	comicUrl = chapter_Images[i]
+	print('Downloading image %s...' % (comicUrl))
+	downloadThread(comicUrl, chapter_Title)
+print('Done.')
