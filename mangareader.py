@@ -33,5 +33,33 @@ if int(selection_Number) > 0 and int(selection_Number) < 9 and selection_Number.
 	print('Nice')
 else:
 	print('Not nice')
-print('https://mangapark.me/' + list_Manga[int(selection_Number) - 1]['href'])
+print('https://mangapark.me' + list_Manga[int(selection_Number) - 1]['href'])
 res = requests.get('https://mangapark.me' + list_Manga[int(selection_Number) - 1]['href'])
+try:
+    res.raise_for_status()
+except Exception as exc:
+    print('There was a problem: %s' % (exc))
+search_Manga = bs4.BeautifulSoup(res.text, features="html.parser")
+list_Chapters = search_Manga.select('.chapter > li > div > a.ml-1')
+
+for i in range(len(list_Chapters)):
+	print(str(i+1) + '. ' + list_Chapters[i].text)
+
+chapter_Begin = input('Please select starting chapter ')
+chapter_End = input('Please select ending chapter ')
+
+chapters = list()
+for i in range(int(chapter_Begin) - 1, int(chapter_End)):
+	chapters.append('https://mangapark.me' + list_Chapters[i]['href'][:-2])
+	print(str(i+1) + '. ' + list_Chapters[i].text)
+print(chapters)
+chapter_Title = input('Please input directory name')
+os.makedirs(chapter_Title, exist_ok=True)
+chapter_Images = list()
+for i in range(len(chapters)):
+	res = requests.get(chapters[i])
+	try:
+	    res.raise_for_status()
+	except Exception as exc:
+	    print('There was a problem: %s' % (exc))
+	search_Page = bs4.BeautifulSoup(res.text, features="html.parser")
